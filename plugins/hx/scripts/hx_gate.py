@@ -55,13 +55,55 @@ SHARED_PREREQ: dict[str, list[str]] = {
 MAX_REWORK = 2
 
 
-def fingerprint(repo: Path) -> dict:
-    """The code's current identity: HEAD sha plus a worktree fingerprint."""
+def fingerprint(repo: Path, flow: Path | None = None) -> dict:
+    """The code's current identity: HEAD sha plus a worktree fingerprint.
+
+    THE FINGERPRINT MUST COVER CONTENT, NOT JUST THE FILE LIST. Hashing `git status --porcelain`
+    alone looks sufficient and is not: during `execute` the files are modified but not yet
+    committed, so a file edited again after `verify` is already listed as modified and the status
+    output does not change by one byte. Ship would then accept code no one verified - and the
+    normal path through this workflow is exactly that, uncommitted edits to the same files.
+
+    So three things are hashed: the status list (catches renames and deletions), the diff against
+    HEAD (catches every tracked edit, staged or not) and the blob hash of each untracked file
+    (catches new files and their content).
+
+    The `.flow/` workspace is EXCLUDED. It is this workflow's own bookkeeping, not the code under
+    verification: `verify.json` is written by the very call that records the fingerprint, so
+    including it would make every verification instantly stale against itself, and advancing
+    `phase:` in state.md would invalidate a verification that no code change touched.
+    """
+    rel = None
+    if flow is not None:
+        try:
+            rel = flow.resolve().relative_to(repo.resolve()).as_posix()
+        except ValueError:
+            rel = None
+
+    def outside(path: str) -> bool:
+        return rel is None or not (path == rel or path.startswith(rel + "/"))
+
     sha, rc = git("rev-parse", "HEAD", cwd=repo)
-    status, _ = git("status", "--porcelain", "-uall", cwd=repo)
+    raw, _ = git("status", "--porcelain", "-uall", cwd=repo)
+    lines = [ln for ln in raw.splitlines()
+             if len(ln) > 3 and outside(ln[3:].strip().strip('"').split("->")[-1].strip())]
+    status = "\n".join(lines)
+
+    diff_args = ["diff", "HEAD"]
+    if rel:
+        diff_args += ["--", ".", f":(exclude){rel}"]
+    diff, _ = git(*diff_args, cwd=repo)
+
+    untracked = [ln[3:].strip().strip('"') for ln in lines if ln.startswith("??")]
+    blobs: list[str] = []
+    for i in range(0, len(untracked), 100):  # keep the command line within the Windows limit
+        out, hrc = git("hash-object", "--", *untracked[i:i + 100], cwd=repo)
+        blobs.append(out if hrc == 0 else "\n".join(untracked[i:i + 100]))
+
+    material = "\n".join([status, diff, *blobs])
     return {
         "sha": sha if rc == 0 and sha else None,
-        "worktree": hashlib.sha256(status.encode("utf-8")).hexdigest()[:16],
+        "worktree": hashlib.sha256(material.encode("utf-8")).hexdigest()[:16],
     }
 
 
@@ -98,7 +140,7 @@ def main() -> int:
 
     # --- Record the verification result ---
     if args.record_verify:
-        rec = {"result": args.result, **fingerprint(repo)}
+        rec = {"result": args.result, **fingerprint(repo, root)}
         verify_file.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n",
                                encoding="utf-8")
         rep = Report("hx-gate — verification record")
@@ -160,7 +202,7 @@ def main() -> int:
             if rec.get("result") != "pass":
                 rep.fail("verification result", f"'{rec.get('result')}' — ship requires pass")
             else:
-                now = fingerprint(repo)
+                now = fingerprint(repo, root)
                 if rec.get("sha") != now["sha"]:
                     rep.fail("stale verification",
                              f"verified sha={str(rec.get('sha'))[:8]} but HEAD={str(now['sha'])[:8]}"

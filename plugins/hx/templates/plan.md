@@ -20,8 +20,9 @@
 | S1 | <repo-map rule name> |
 
 ## Slices requiring migration
-<!-- Every slice that changes the data model. If none: none -->
-<none>
+<!-- Every slice that changes the data model. If none, leave the word below as it stands:
+     no angle brackets, because this is a real value and not a placeholder to fill. -->
+none
 
 ## Acceptance mapping
 <!-- Every AC must be covered by at least one slice. An uncovered AC → hx-lint FAIL. -->

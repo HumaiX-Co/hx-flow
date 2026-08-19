@@ -18,6 +18,7 @@ import re
 import sys
 from pathlib import Path
 
+from hx_structure import load_rules
 from hx_common import (
     FIELD_RE, Report, effective_lines, find_section, front_fields, has_placeholder,
     flow_root, plugin_data, sections, table_rows,
@@ -209,6 +210,29 @@ def lint_checks(rep: Report, checks_text: str, repo_map_text: str | None) -> Non
             rep.fail("checks: scope match", "not in repo-map Scopes: " + ", ".join(mismatch))
         elif declared:
             rep.ok("checks: scope match", "consistent with repo-map")
+
+
+def lint_repo_map_contract(rep: Report, path: Path) -> None:
+    """Every `requires:<glob>` target must itself be an allowed pattern.
+
+    Otherwise the very file written to satisfy the requirement counts as an illegal placement, and
+    the contract can never be satisfied by anyone. structure-check reports this too, but only once
+    code is being written: `map` validates its own output through this linter, so a repo-map that
+    contradicts itself has to fail HERE. Found by driving the phases end to end, where the first
+    sign of a dangling requires: was a WARN in the middle of `execute`, long after the repo-map
+    had been accepted and every later feature had started depending on it.
+    """
+    rules = load_rules(path)
+    if not rules:
+        return  # an empty table is reported by the section checks already
+    known = {r["pattern"].replace("\\", "/") for r in rules}
+    gaps = [f"{r['name']} -> requires:{req}"
+            for r in rules for req in r["requires"] if req.replace("\\", "/") not in known]
+    if gaps:
+        rep.fail("repo-map: requires targets",
+                 "; ".join(gaps) + " — not defined as an allowed pattern")
+    else:
+        rep.ok("repo-map: requires targets", f"{len(rules)} rule(s) internally consistent")
 
 
 def lint_ratchet(rep: Report, path: Path) -> None:
@@ -419,6 +443,7 @@ def main() -> int:
             lint_file(rep, p)
             if shared == "repo-map.md":
                 repo_map_text = p.read_text(encoding="utf-8")
+                lint_repo_map_contract(rep, p)
             elif shared == "checks.md":
                 lint_checks(rep, p.read_text(encoding="utf-8"), repo_map_text)
         elif shared == "repo-map.md":

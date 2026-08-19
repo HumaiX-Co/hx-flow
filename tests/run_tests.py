@@ -21,6 +21,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "plugins" / "hx" / "scripts"
 HOOKS = ROOT / "plugins" / "hx" / "hooks"
+TEMPLATES = ROOT / "plugins" / "hx" / "templates"
+
+
+def template_slice_status() -> str:
+    """Whatever `templates/state.md` ships under 'Slice status'.
+
+    This is the value a freshly discussed feature carries: `discuss` runs before `plan`, so no
+    slice exists yet, and `discuss` refuses to finish until hx-lint passes. Reading it from the
+    real template rather than restating it is the point - a placeholder added here must fail the
+    suite, not the developer.
+    """
+    body = TEMPLATES.joinpath("state.md").read_text(encoding="utf-8").split("## Slice status", 1)[1]
+    lines = [ln for ln in body.splitlines() if ln.strip() and "<!--" not in ln and "-->" not in ln]
+    return lines[0] if lines else ""
 
 for _s in (sys.stdout, sys.stderr):
     try:
@@ -259,9 +273,19 @@ class Fixture:
         (self.flow / "ratchet.json").write_text(
             json.dumps({"metrics": metrics}, ensure_ascii=False), encoding="utf-8")
 
+    def patch_repo_map(self, old: str, new: str) -> None:
+        p = self.flow / "repo-map.md"
+        p.write_text(p.read_text(encoding="utf-8").replace(old, new, 1), encoding="utf-8")
+
     def patch_state(self, old: str, new: str) -> None:
         p = self.flow / "features" / "demo" / "state.md"
         p.write_text(p.read_text(encoding="utf-8").replace(old, new, 1), encoding="utf-8")
+
+    def set_slice_status(self, value: str) -> None:
+        p = self.flow / "features" / "demo" / "state.md"
+        text = p.read_text(encoding="utf-8")
+        head, _, _ = text.partition("## Slice status")
+        p.write_text(head + "## Slice status\n" + value + "\n", encoding="utf-8")
 
     def set_phase(self, phase: str, rework: int | None = None) -> None:
         p = self.flow / "features" / "demo" / "state.md"
@@ -276,6 +300,10 @@ class Fixture:
         p = self.repo / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("x", encoding="utf-8")
+
+    def append(self, rel: str, text: str) -> None:
+        p = self.repo / rel
+        p.write_text(p.read_text(encoding="utf-8") + text, encoding="utf-8")
 
     def rm(self, rel: str) -> None:
         p = self.repo / rel
@@ -309,6 +337,16 @@ class Fixture:
                            input=payload, capture_output=True, text=True,
                            encoding="utf-8", errors="replace")
         return r.returncode
+
+    def run_text(self, script: str, *args: str) -> str:
+        """Stdout of a script run. For asserting on ONE check inside a report whose overall
+        exit code is dominated by the deliberately-bad fixture feature."""
+        cmd = [sys.executable, str(SCRIPTS / script), "--flow", str(self.flow)]
+        if script != "hx_lint.py":
+            cmd += ["--repo", str(self.repo)]
+        r = subprocess.run(cmd + list(args), capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        return (r.stdout or "") + (r.stderr or "")
 
     def run(self, script: str, *args: str) -> int:
         cmd = [sys.executable, str(SCRIPTS / script), "--flow", str(self.flow)]
@@ -522,12 +560,56 @@ def main() -> int:
         check("gate: a fresh passing verification allows ship",
               f.run("hx_gate.py", "--feature", "demo", "--to", "ship"), 0)
         f.touch("backend/billing/late_change.py")
-        check("gate: code changed after verification -> STALE, ship blocked",
+        check("gate: a NEW file after verification -> STALE, ship blocked",
               f.run("hx_gate.py", "--feature", "demo", "--to", "ship"), 1)
+        # The case the file-list fingerprint could not see, found by driving the phases end to
+        # end: during execute the files are modified but not committed, so editing one AGAIN
+        # after verify leaves `git status --porcelain` byte-identical. Ship accepted unverified
+        # code, which is the one thing this gate exists to prevent.
         f.rm("backend/billing/late_change.py")
+        f.touch("backend/billing/already_modified.py")
+        f.run("hx_gate.py", "--feature", "demo", "--record-verify", "--result", "pass")
+        check("gate: an untouched worktree is not stale",
+              f.run("hx_gate.py", "--feature", "demo", "--to", "ship"), 0)
+        f.append("backend/billing/already_modified.py", "\n# one more line\n")
+        check("gate: editing an ALREADY-modified file after verification -> STALE",
+              f.run("hx_gate.py", "--feature", "demo", "--to", "ship"), 1)
+        f.rm("backend/billing/already_modified.py")
+        f.run("hx_gate.py", "--feature", "demo", "--record-verify", "--result", "pass")
         f.set_phase("verify", rework=2)
         check("gate: exceeding the rework limit blocks",
               f.run("hx_gate.py", "--feature", "demo", "--to", "execute"), 1)
+
+        # --- repo-map self-consistency ---
+        # A requires: target that is not itself an allowed pattern makes the contract impossible
+        # to satisfy: the file written to meet the requirement is an illegal placement. Found by
+        # driving the phases end to end, where structure-check only WARNed about it in the middle
+        # of execute - long after map had accepted the repo-map.
+        f.patch_repo_map("requires:backend/migrations/**", "requires:backend/nowhere/**")
+        check("lint: a requires: target that is not an allowed pattern FAILS",
+              f.run("hx_lint.py", "--all"), 1)
+        f.patch_repo_map("requires:backend/nowhere/**", "requires:backend/migrations/**")
+        # --all also lints the deliberately-bad fixture feature, so its exit code can never be 0.
+        # Assert on the one check this scenario is about.
+        out = f.run_text("hx_lint.py", "--all")
+        results.append(("PASS    repo-map: requires targets" in out,
+                        "lint: a self-consistent repo-map reports its contract intact",
+                        "PASS line present" if "PASS    repo-map: requires targets" in out
+                        else "the contract check did not pass or did not run"))
+
+        # --- the discuss -> lint handshake ---
+        # Found by driving the phases end to end: the template shipped "<no plan yet>" under
+        # Slice status, hx-lint read the angle brackets as an unfilled placeholder, and a feature
+        # that had only been discussed could therefore never pass the lint that discuss requires.
+        # Every fixture above fills Slice status with real slices, so nothing caught it.
+        f.set_phase("discuss")
+        f.set_slice_status(template_slice_status())
+        check("lint: a discussed feature carrying the template's own Slice status passes",
+              f.run("hx_lint.py", "--feature", "demo"), 0)
+        f.set_slice_status("<no plan yet>")
+        check("lint: a real placeholder under Slice status is still caught",
+              f.run("hx_lint.py", "--feature", "demo"), 1)
+        f.write_state()
 
         # --- hx-push-guard (PreToolUse hook) ---
         # Exit 2 = the tool call is blocked. Every other exit code lets the push through, so the

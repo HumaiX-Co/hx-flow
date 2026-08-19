@@ -170,7 +170,7 @@ Writes are one-way: flow -> Trello, never back.
 ## Working on hx-flow itself
 
 ```
-python tests/run_tests.py        # 62 scenarios — 33 of them expect a refusal
+python tests/run_tests.py        # 68 scenarios — 36 of them expect a refusal
 python tests/check_self.py       # body budget ≤40, stack independence, English-only
 python tests/check_templates.py  # templates match their schema
 ```

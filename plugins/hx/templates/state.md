@@ -41,5 +41,7 @@ no new dependencies
 - Q1 <question> → owner: <name>
 
 ## Slice status
-<!-- Filled by the plan phase. States: todo|doing|done|blocked -->
-<no plan yet>
+<!-- Filled by the plan phase. States: todo|doing|done|blocked
+     No angle brackets here: this is a real value, not a placeholder to fill. A feature that has
+     only been discussed has no plan yet, and hx-lint must let it finish. -->
+no plan yet

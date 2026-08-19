@@ -26,16 +26,35 @@ and what to do about it.
 
 ## Status
 
-**v0.4.0 — validated against a real repository.** 11 phase skills, 4 playbooks, 6 templates,
-8 scripts, 1 hook. 62 regression scenarios, 3 self-check rules and template/schema consistency
-all pass.
+**v0.5.0 — driven end to end.** 11 phase skills, 5 playbooks, 6 templates, 8 scripts, 1 hook.
+68 regression scenarios, 3 self-check rules and template/schema consistency all pass on Linux and
+Windows.
 
-The `map` phase has been run against a real multi-language monorepo (Python + Next.js). That run
-found three defects, all now fixed and covered by tests: POSIX commands were being run through
-`cmd.exe` on Windows and producing FAILs that were not real; `ratchet.json` was never validated, so a
-malformed regex escape silently disabled drift control; and resolving an executable was mistaken for
-a scope being ready to use. The phases themselves have not yet been driven end to end as an
-installed plugin.
+The `map` phase was first run against a real multi-language monorepo (Python + Next.js), which
+found three defects: POSIX commands were being run through `cmd.exe` on Windows and producing
+FAILs that were not real; `ratchet.json` was never validated, so a malformed regex escape silently
+disabled drift control; and resolving an executable was mistaken for a scope being ready to use.
+
+All eleven phases have since been driven end to end — `map` through `ship`, including the push
+guard and the archive step — against a throwaway repository. That run found three more, all now
+fixed and covered by tests:
+
+- **Stale verification could not see the common case.** The worktree fingerprint hashed the output
+  of `git status --porcelain`, not file content. During `execute` files are modified but not
+  committed, so editing one again after `verify` left the status output byte-identical and ship
+  accepted unverified code. The fingerprint now covers the diff against HEAD and the blob hash of
+  every untracked file, and excludes `.flow/` so the workflow's own bookkeeping cannot invalidate
+  a verification.
+- **Two templates shipped a placeholder where they documented a literal.** `state.md` carried
+  `<no plan yet>` and `plan.md` carried `<none>`; hx-lint reads angle brackets as unfilled, so a
+  feature that had only been discussed — and a plan needing no migration — could never pass the
+  lint that `discuss` and `plan` themselves require before finishing.
+- **A dangling `requires:` target survived `map`.** structure-check only warned about it in the
+  middle of `execute`, long after every later feature had started depending on the repo-map.
+  hx-lint now fails on it, which is where `map` validates its own output.
+
+Each was invisible to the suite for the same reason: the fixtures filled in exactly the fields a
+real first run leaves at their defaults.
 
 ### Measured cost
 
