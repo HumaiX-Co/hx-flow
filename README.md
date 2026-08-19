@@ -226,6 +226,10 @@ unverified code out and no validator ever sees it.
 feature is at phase `execute` or `verify` — `ship` is the workflow's only exit, so the exit itself
 is enforced from outside the phases. Exit 2 blocks the tool call and the reason reaches the model.
 
+A hook is also free in context — `claude plugin details hx` reports it as `harness-only — no
+model context cost`. That is the difference between enforcing something with a hook and enforcing
+it with a connected MCP server, whose tool schemas are an always-on cost in every session.
+
 It is deliberately narrow, because a guard that misfires gets switched off and a switched-off
 guard protects nothing. It exits 0 — allows — on all of: no `.flow/`, no active feature, an
 unguarded phase, a branch deletion, `git pull`, a non-`Bash` tool call, an unparsable envelope.
