@@ -1,0 +1,10 @@
+# Line endings are normalised to LF in the repository. Contributors work on Windows and Linux,
+# and CI runs on both; without this the same file arrives with a different hash per platform and
+# every checkout looks like a diff.
+* text=auto
+
+# Executed files keep LF in the working tree too. A shebang followed by CR is not a valid
+# interpreter path on Linux, and that failure is confusing out of proportion to its cause.
+*.py text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf

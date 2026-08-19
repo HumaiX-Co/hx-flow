@@ -11,10 +11,9 @@ Three rules erode if they stay mere intentions, so they are protected by a test:
            Tool names may appear as EXPLANATION, never inside a command we execute.
 
   RULE 3 - The repository is English-only.
-           Skill bodies and descriptions are prompts the model reads, and this plugin is meant
-           to outlive one team - it may be published, and a prompt in one team's language is one
-           the next maintainer cannot review. Per-team vocabulary belongs in
-           data/criteria-language.json, never in code.
+           Skill bodies and descriptions are prompts the model reads, and this plugin is
+           distributed publicly. Per-team vocabulary belongs in data/criteria-language.json,
+           never in code.
 
 Usage: python tests/check_self.py
 """

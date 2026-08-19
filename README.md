@@ -62,10 +62,6 @@ python tests/check_templates.py  # template/schema consistency
 /plugin install hx@humaix
 ```
 
-This repository is **private**, so the first command clones over your git credentials: you need
-HumaiX-Co membership and an authenticated git (`gh auth login`, or an SSH key on the account). A
-developer without org access gets a clone failure, not a permission prompt.
-
 From a local checkout, the CLI works too — note the `./` prefix is required:
 
 ```
@@ -286,8 +282,7 @@ rules on Linux and Windows in CI:
   repo's `.flow/checks.md`. Tool names may appear as explanation, never inside a command that runs.
   Exempt: `git`, `gh` (the git host decision), `python` (the scripts' own language).
 - **English-only.** Skill bodies and descriptions are prompts the model reads, and this plugin is
-  meant to outlive one team — it may be published, and a prompt written in one team's language is
-  one the next maintainer cannot review. Vocabulary specific to your team's language belongs in
+  distributed publicly. Vocabulary specific to your team's language belongs in
   `data/criteria-language.json`, never in code. Typographic symbols are allowed; letters are not.
 
 When adding a capability, write its test first — especially the test that expects **FAIL**.
