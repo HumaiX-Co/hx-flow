@@ -93,7 +93,7 @@ phase is not a shortcut, it is a missing artifact.
 | `rework rounds 2/2` | two failed verify rounds | the scope is wrong — `/hx:discuss` |
 | `a planted secret was NOT detected` | `secret-scan` never looks | fix the command in `checks.md`, not the gate |
 | `audit-block is not defined` (ship) | missing config is not safe | declare the audit command in `checks.md` |
-| `manifest changed` + empty dependency decision | a new package slipped in undecided | fill `## Dependency decision` in `state.md` |
+| `manifest changed but no decision recorded` | a package slipped in under the template's default claim | name the dependency and why in `## Dependency decision`, or say why the manifest moved |
 | `[hx-push-guard] BLOCKED` | `git push` at phase `execute`/`verify` | `/hx:verify` then `/hx:ship` |
 
 ## The push guard
@@ -170,7 +170,7 @@ Writes are one-way: flow -> Trello, never back.
 ## Working on hx-flow itself
 
 ```
-python tests/run_tests.py        # 68 scenarios — 36 of them expect a refusal
+python tests/run_tests.py        # 71 scenarios — 38 of them expect a refusal
 python tests/check_self.py       # body budget ≤40, stack independence, English-only
 python tests/check_templates.py  # templates match their schema
 ```

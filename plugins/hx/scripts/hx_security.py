@@ -50,8 +50,32 @@ def manifest_touched(changeset: set[str]) -> list[str]:
     return sorted(hits)
 
 
-def dependency_decision(state_path: Path) -> tuple[bool, str]:
-    """Is there a filled-in 'Dependency decision' section in state.md?"""
+def template_default_decision() -> str:
+    """The 'Dependency decision' value that `templates/state.md` ships.
+
+    Read from the template rather than hardcoded, so a team that rewords it keeps the gate.
+    """
+    path = Path(__file__).resolve().parent.parent / "templates" / "state.md"
+    try:
+        _, body = find_section(sections(path.read_text(encoding="utf-8")), "Dependency decision")
+    except OSError:
+        return ""
+    if not body:
+        return ""
+    return next((ln.strip().lower() for ln in body.splitlines() if ln.strip()), "")
+
+
+def dependency_decision(state_path: Path, manifest_changed: bool) -> tuple[bool, str]:
+    """Is there a filled-in 'Dependency decision' that actually answers this changeset?
+
+    "Non-empty" is NOT the test, and treating it as one made this gate pass unconditionally:
+    every state.md starts from a template that already says "no new dependencies", so the section
+    is never empty and the check never fired. A manifest can then change under a claim that no
+    dependency was added, which is precisely the event the gate exists to catch.
+
+    So when a manifest changed, the section must say something other than the template's default.
+    Reformatting a manifest is a legitimate reason - it just has to be written down.
+    """
     if not state_path.is_file():
         return False, "state.md missing"
     secs = sections(state_path.read_text(encoding="utf-8"))
@@ -61,6 +85,10 @@ def dependency_decision(state_path: Path) -> tuple[bool, str]:
     content = "\n".join(ln for ln in body.splitlines() if ln.strip())
     if not content or has_placeholder(content):
         return False, "section left empty"
+    default = template_default_decision()
+    if manifest_changed and default and content.strip().lower() == default:
+        return False, (f"still the template default ('{content.strip()[:40]}') while a manifest "
+                       "changed — name the dependency and why, or say why the manifest moved")
     return True, content.splitlines()[0][:70]
 
 
@@ -105,7 +133,7 @@ def main() -> int:
 
     # --- 2) A new dependency is a decision. It cannot be added silently. ---
     if touched and args.feature:
-        ok, detail = dependency_decision(root / "features" / args.feature / "state.md")
+        ok, detail = dependency_decision(root / "features" / args.feature / "state.md", True)
         if ok:
             rep.ok("dependency decision", detail)
         else:

@@ -84,7 +84,7 @@ def fingerprint(repo: Path, flow: Path | None = None) -> dict:
         return rel is None or not (path == rel or path.startswith(rel + "/"))
 
     sha, rc = git("rev-parse", "HEAD", cwd=repo)
-    raw, _ = git("status", "--porcelain", "-uall", cwd=repo)
+    raw, _ = git("status", "--porcelain", "-uall", cwd=repo, strip=False)
     lines = [ln for ln in raw.splitlines()
              if len(ln) > 3 and outside(ln[3:].strip().strip('"').split("->")[-1].strip())]
     status = "\n".join(lines)

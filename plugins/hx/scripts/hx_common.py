@@ -166,13 +166,24 @@ def parse_checks(text: str) -> dict[str, dict[str, str]]:
     return out
 
 
-def git(*args: str, cwd: Path | None = None) -> tuple[str, int]:
+def git(*args: str, cwd: Path | None = None, strip: bool = True) -> tuple[str, int]:
+    """Run git. `strip=False` when the output is COLUMN-SENSITIVE.
+
+    `git status --porcelain` emits `XY<space>PATH`, and X is a space for a change that is not
+    staged. Stripping the whole output removes that leading space from the FIRST line only, which
+    shifts its path by one character - `requirements.txt` is read as `equirements.txt`. The file
+    then matches no manifest and no placement rule, so the dependency gate is silently skipped and
+    the placement contract is checked against a path that does not exist. Only the first line is
+    affected and only when it is an unstaged change, which is why this survived every test: the
+    fixtures never commit, so every file is untracked and every line starts with `??`.
+    """
     try:
         r = subprocess.run(
             ["git", *args], cwd=str(cwd) if cwd else None,
             capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
-        return (r.stdout or "").strip(), r.returncode
+        out = r.stdout or ""
+        return (out.strip() if strip else out.rstrip("\n")), r.returncode
     except FileNotFoundError:
         return "", 127
 
@@ -182,7 +193,7 @@ def changed_files(repo: Path, base: str | None = None) -> tuple[list[str], list[
     added, modified = [], []
     # -uall is required: by default git summarises untracked DIRECTORIES on one line,
     # which makes per-file inspection of new files impossible.
-    out, _ = git("status", "--porcelain", "-uall", cwd=repo)
+    out, _ = git("status", "--porcelain", "-uall", cwd=repo, strip=False)
     for line in out.splitlines():
         if len(line) < 4:
             continue

@@ -408,8 +408,18 @@ def main() -> int:
         check("security: no manifest change, slice passes",
               f.run("hx_security.py", "--mode", "slice", "--feature", "demo"), 0)
         f.touch("package.json")
-        check("security: manifest changed with a decision, ship passes",
+        # The blind spot this closes, found by driving a second feature through the phases: every
+        # state.md starts from a template that already says "no new dependencies", so the section
+        # is never empty. Asserting only "non-empty" let a manifest change through under a claim
+        # that nothing was added - the exact event the gate exists to catch. This scenario used to
+        # pass a manifest change carrying that untouched default and expect success.
+        check("security: a manifest change under the template's default decision BLOCKS ship",
+              f.run("hx_security.py", "--mode", "ship", "--feature", "demo"), 1)
+        f.write_state(dep="- left-pad - why: padding; license: MIT; maintained: active")
+        check("security: manifest changed with a real decision, ship passes",
               f.run("hx_security.py", "--mode", "ship", "--feature", "demo"), 0)
+        f.write_state()
+        f.rm("package.json")   # back to "no manifest changed" for the scenarios below
 
         f.write_checks(audit_block=FAIL_CMD)
         check("security: a vulnerability blocks ship",
@@ -420,9 +430,11 @@ def main() -> int:
               f.run("hx_security.py", "--mode", "ship", "--feature", "demo"), 1)
 
         f.write_checks()
+        f.touch("package.json")
         f.write_state(dep="")
         check("security: a missing dependency decision blocks ship",
               f.run("hx_security.py", "--mode", "ship", "--feature", "demo"), 1)
+        f.rm("package.json")
 
         f.write_state()
         f.write_checks(secret_scan=FAIL_CMD)
@@ -642,6 +654,22 @@ def main() -> int:
         check("push-guard: an auditable override trailer releases the push",
               f.hook("git push"), 0)
         f.set_current(None)
+
+        # --- porcelain column parsing ---
+        # Every scenario above runs on a repository with no commit, so `git status --porcelain`
+        # emits only `?? path` lines. An UNSTAGED change emits ` M path`, with a leading space,
+        # and stripping the whole output ate that space on the FIRST line only - `package.json`
+        # was read as `ackage.json`, matched no manifest, and the dependency gate was skipped
+        # without a word. Found by driving a second feature through the phases in a repository
+        # that had actually been committed.
+        f.touch("package.json")
+        f.commit("baseline so that later edits are tracked modifications")
+        f.append("package.json", "{}\n")
+        check("security: an unstaged manifest edit is seen even as the first status line",
+              f.run("hx_security.py", "--mode", "ship", "--feature", "demo"), 1)
+        f.write_state(dep="- left-pad - why: padding; license: MIT; maintained: active")
+        check("security: the same edit passes once the decision names the dependency",
+              f.run("hx_security.py", "--mode", "ship", "--feature", "demo"), 0)
     finally:
         shutil.rmtree(base, ignore_errors=True)
 

@@ -26,9 +26,9 @@ and what to do about it.
 
 ## Status
 
-**v0.5.0 — driven end to end.** 11 phase skills, 5 playbooks, 6 templates, 8 scripts, 1 hook.
-68 regression scenarios, 3 self-check rules and template/schema consistency all pass on Linux and
-Windows.
+**v0.5.1 — driven end to end, twice.** 11 phase skills, 5 playbooks, 6 templates, 8 scripts,
+1 hook. 71 regression scenarios, 3 self-check rules and template/schema consistency all pass on
+Linux and Windows.
 
 The `map` phase was first run against a real multi-language monorepo (Python + Next.js), which
 found three defects: POSIX commands were being run through `cmd.exe` on Windows and producing
@@ -53,8 +53,26 @@ fixed and covered by tests:
   middle of `execute`, long after every later feature had started depending on the repo-map.
   hx-lint now fails on it, which is where `map` validates its own output.
 
-Each was invisible to the suite for the same reason: the fixtures filled in exactly the fields a
-real first run leaves at their defaults.
+A second feature was then driven through the same workspace, deliberately taking the failure
+paths rather than the happy one. Collision detection, archive precedent, illegal placement, the
+ratchet in both directions, the rework limit and the push-guard override all behaved. Two more
+defects did not:
+
+- **The dependency gate could not fail.** It asked only whether `## Dependency decision` was
+  non-empty — and every state.md starts from a template that already says "no new dependencies",
+  so the section is never empty. A manifest could change under that untouched claim and ship
+  passed. The same failure shape the secret-scan canary exists to catch: a gate that always
+  passes while appearing to protect something. The section must now say something other than the
+  template's default when a manifest changed.
+- **The first line of `git status --porcelain` was misparsed.** `git()` stripped the whole
+  output, and an unstaged change emits ` M path` with a leading space — so the first such path
+  lost its first character. `requirements.txt` was read as `equirements.txt`, matched no manifest
+  and no placement rule, and the dependency gate was skipped silently. Column-sensitive output is
+  no longer stripped.
+
+Each of the five was invisible to the suite for the same reason: the fixtures set up exactly the
+conditions a real run does not have — filling in fields a first run leaves at their defaults, and
+never committing, so every file was untracked and no status line ever began with a space.
 
 ### Measured cost
 
