@@ -1,0 +1,11 @@
+.env
+.env.local
+*.local
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# hx-flow calisma alani asla plugin repo'suna girmez
+.flow/

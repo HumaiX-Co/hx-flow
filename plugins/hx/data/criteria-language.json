@@ -1,0 +1,39 @@
+{
+  "_comment": "Language rules for acceptance criteria. A criterion is rejected only when a word from 'vague' appears AND no measurable trace is present. Measurable traces are numbers, ratios, comparisons, code spans, paths, HTTP statuses, or a unit from 'units'. Teams writing acceptance criteria in another language should add their own terms to both lists here rather than editing hx_lint.py.",
+  "vague": [
+    "works",
+    "working",
+    "works properly",
+    "fast",
+    "better",
+    "clean",
+    "nice",
+    "improved",
+    "robust",
+    "seamless",
+    "user friendly",
+    "user-friendly",
+    "performant",
+    "stable",
+    "easy",
+    "intuitive",
+    "optimised",
+    "optimized"
+  ],
+  "units": [
+    "ms",
+    "sec",
+    "secs",
+    "seconds",
+    "min",
+    "mins",
+    "minutes",
+    "rows",
+    "records",
+    "items",
+    "requests",
+    "bytes",
+    "kb",
+    "mb"
+  ]
+}

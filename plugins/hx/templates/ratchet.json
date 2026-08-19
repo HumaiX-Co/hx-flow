@@ -1,0 +1,47 @@
+{
+  "_comment": "hx-flow ratchet - drift control. Clearing existing debt is NOT required; adding new debt is FORBIDDEN. /hx:map measures baselines, /hx:verify compares, /hx:ship tightens. Each metric needs a 'measure' command that prints a NUMBER. Rules: no-increase | must-be-zero",
+  "generatedAt": null,
+  "metrics": {
+    "lint-warnings": {
+      "scope": null,
+      "measure": null,
+      "baseline": null,
+      "rule": "no-increase"
+    },
+    "raw-color-literals": {
+      "scope": null,
+      "measure": null,
+      "baseline": null,
+      "rule": "no-increase",
+      "_note": "Count of raw #hex / rgb() / direct color literals. Semantic design tokens are mandatory."
+    },
+    "undeclared-design-token": {
+      "scope": null,
+      "measure": null,
+      "baseline": 0,
+      "rule": "must-be-zero",
+      "_note": "Colors not defined in the design system. Extending the palette is a design decision; it returns to discuss."
+    },
+    "untyped-escape": {
+      "scope": null,
+      "measure": null,
+      "baseline": null,
+      "rule": "no-increase",
+      "_note": "Escapes from the type system (TS any, Python Any, C# dynamic, and so on)."
+    },
+    "i18n-missing-locale": {
+      "scope": null,
+      "measure": null,
+      "baseline": 0,
+      "rule": "must-be-zero",
+      "_note": "Keys missing from a locale file. A hard gate in multilingual projects."
+    },
+    "vuln-total": {
+      "scope": null,
+      "measure": "checks.md security > audit-count",
+      "baseline": null,
+      "rule": "no-increase",
+      "_note": "Total vulnerability count. critical/high are separately and absolutely blocked by audit-block; this metric stops moderate/low debt from accumulating."
+    }
+  }
+}

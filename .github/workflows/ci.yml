@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # Windows included on purpose: these scripts must work on a developer machine and in CI.
+    # Traps such as the cp1252 console encoding only surface on Windows.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Regression tests
+        run: python tests/run_tests.py
+
+      - name: Design principles (body budget + stack independence)
+        run: python tests/check_self.py
+
+      - name: Templates match their schema
+        run: python tests/check_templates.py

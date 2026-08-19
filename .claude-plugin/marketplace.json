@@ -1,0 +1,23 @@
+{
+  "name": "humaix",
+  "description": "Humaix development tooling",
+  "owner": {
+    "name": "Humaix",
+    "url": "https://github.com/HumaiX-Co"
+  },
+  "plugins": [
+    {
+      "name": "hx",
+      "source": "./plugins/hx",
+      "displayName": "hx-flow",
+      "description": "Lightweight, deterministic feature workflow: discuss -> research -> plan -> execute -> verify -> ship. Language and stack agnostic.",
+      "category": "workflow",
+      "tags": [
+        "spec-driven",
+        "workflow",
+        "standardization",
+        "trello"
+      ]
+    }
+  ]
+}

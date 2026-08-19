@@ -1,0 +1,19 @@
+{
+  "name": "hx",
+  "version": "0.4.0",
+  "description": "Lightweight, deterministic feature workflow: discuss -> research -> plan -> execute -> verify -> ship. Language and stack agnostic.",
+  "author": {
+    "name": "Humaix",
+    "url": "https://github.com/HumaiX-Co"
+  },
+  "license": "MIT",
+  "keywords": [
+    "spec-driven",
+    "workflow",
+    "standardization"
+  ],
+  "capabilities": [
+    "skills",
+    "hooks"
+  ]
+}
